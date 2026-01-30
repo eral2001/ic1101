@@ -49,5 +49,50 @@ to ensure that everything baksmalis correctly (e.g., you need to point to the `s
 
 By having a script automate this process, I hope other devs can get up to speed quickly with the headunit code.
 
+## Using apktool alongside JADX
+
+JADX is great for constructing Java code; apktool is better for resource resolution.
+
+- I wanted to reverse-engineer the layouts from the vendor APKs in `/system/vendor/app/*.apk`
+- I tried to use JADX to extract the resources
+- In compiled APKs, all resources are stored as 32-bit integer IDs, not symbolic names
+- When JADX decompiles the APK, it needs to map integer IDs back to symbolic names
+- JADX does this by using a resource table, either from the APK itself or from a framework reference
+- But Honda's framework-res.apk has custom resources with IDs that don't match standard Android
+- So when JADX sees a resource ID like `0x108129a` it either:
+	- Can't find it at all, shows the raw hex ID `0x108129a`
+	- Finds a different resource in modern Android SDK that happens to have the same ID
+		- Shows wrong name like `?android:attr/collapseContentDescription`
+- In reality, `0x108129a` is a reference to a drawable defined in Honda's `framework-res.apk`
+- JADX isn't correctly resolve the resource ID because it doesn't use framework-res.apk properly
+- JADX uses hard-coded resource resolution w/ [jadx-core/src/main/resources/android/res-map.txt](https://github.com/skylot/jadx/blob/331c4aaa5ef0c6aa97fefafd1a818d5467040bd2/jadx-core/src/main/resources/android/res-map.txt)
+- This means there are two underlying issues with resource resolution in JADX:
+	- JADX maps resource IDs to resources that only exist in newer (> API 17) Android versions
+		- So I would see a resource mapped to a resource string that was anachronistic
+	- JADX does not know about custom resources in framework-res, so it fails to look up resource IDs
+		- So I would just see a raw 32-bit hex value, representing the resource ID itself
+- Apktool solved these symbol resolution issues because it can use a custom framework-res.apk
+- Apktool decodes APK resources (layouts, drawables, values, manifest) to their original XML/file form
+- I got the latest from https://apktool.org/
+- At the time of writing this is `apktool_2.12.1.jar`
+- Apktool produced better results than JADX
+
+#### Apktool and Custom `framework-res.apk`
+- I solved the resource resolution issues by installing `framework-res.apk` as a framework named `honda`
+- Then I was able to unpack the resources for a given vendor app (here, `AirCon.apk`)
+- This is now automated to unpack resources for all vendor apps
+```
+apktool if system/vendor/framework/framework-res.apk -t honda  
+# I: Framework installed to: /home/user/.local/share/apktool/framework/1-honda.apk
+java -jar apktool_2.12.1.jar d system/vendor/app/AirCon.apk -t honda -o AirCon-resources/
+# I: Using Apktool 2.12.1 on AirCon.apk with 8 threads
+# I: Loading resource table...
+# I: Decoding file-resources...
+# I: Loading resource table from file: /home/user/.local/share/apktool/framework/1-honda.apk
+# I: Decoding values */* XMLs...
+# I: Decoding AndroidManifest.xml with resources...
+# I: Copying original files...
+# I: Copying unknown files...
+```
 ## Legal Notice
 I am *NOT* affiliated with Honda Motor Co., Ltd. I am *NOT* affiliated with Mitsubishi. Honda and Honda Civic are registered trademarks. This repo does *NOT* contain proprietary APK files, source code, or software update files. This script is just a way to leverage existing tools and software update files that have been published elsewhere to produce .apk files locally.
