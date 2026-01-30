@@ -1,27 +1,41 @@
 # Honda Civic APK Rebuilder
-Script to quickly reconstruct full .apk files from 10th generation Honda Civic `MRC<...>.zip` update files.
+Script to extract, deodex, and decode vendor apps from 10th gen Honda Civic `MRC<...>.zip` update files.
 
 ## Requirements
-- A Honda Civic update file; I can't host it here directly
+- A Honda Civic update file (Google `civicx "MRC_EU_SW_v12_4.zip"`)
 - A recent version of Java (I'm using `openjdk 21.0.7-ea 2025-04-15`)
-- A recent version of Python, >= Python 3.10+ (I'm using `Python 3.13.3`)
+- A recent version of Python, Python 3.10+ (I'm using `Python 3.13.3`)
 
 ## Usage
-1. Find a 10th generation Honda Civic update file on the internet. For copyright reasons I'm not linking it directly, but it should be easy to find. The filename looks something like this: `MRC<...>.zip` (where `<...>` contains version info)
-2. Ensure you have Java installed (see requirements)
-3. Ensure you have Python installed (see requirements)
-4. Clone this repo and cd into the same directory as this README.md file.
-5. Copy your update file somewhere accessible. I use `./inputs/MRC<...>.zip`, relative to this directory.
-6. Run `python3 main.py ./inputs/MRC<...>.zip` (I'm on Linux; the specific syntax may vary if you're on Windows)
-7. If all goes well, you'll have nice `.apk` files in the `./build/output-vendor-apps/` directory
-8. Install the [jadx GUI tool](https://github.com/skylot/jadx)
-9. In the JADX GUI, click `File` > `Open project` and select the `./build/output-vendor-apps/` directory.
-10. When prompted to "Load all files from directory?" choose "Yes".
+1. Ensure Java is installed
+2. Ensure python3 is installed
+3. Clone this repo and `cd` into this directory.
+4. Find a 10th gen Honda Civic update file. Google `civicx "MRC_EU_SW_v12_4.zip"`
+5. Copy the update file to `./input/MRC_EU_SW_v12_4.zip`
+6. Run `python3 main.py ./input/MRC_EU_SW_v12_4.zip` (I'm on Linux; the specific syntax may vary if you're on Windows)
+7. See [Outputs](#outputs) for a description of what gets created.
+
+### Viewing source code with JADX
+1. Install the [jadx GUI tool](https://github.com/skylot/jadx)
+2. In the JADX GUI, click `File` > `Open project` and select the `./output/deodex-apks/` directory.
+3. When prompted to "Load all files from directory?" choose "Yes".
 
 Now inside JADX on the left-side pane you should be able to expand `Source code` and find the Mitsubishi
 source code under `Source code` > `com` > `mitsubishielectric.ada`. If you got this far, congrats! If you had trouble, create an issue or make a PR so I can address it and make this script better for everyone.
 
 Running the script from start to finish should only take a minute or two.
+
+## Outputs
+
+| Directory | Description |
+|---|---|
+| `output/unzipped-zip` | Extracted contents of `MRC<...>.zip` update file |
+| `output/unzipped-mdt` | Extracted contents of `SwUpdate.mdt`; contains Android filesystem |
+| `output/deodex-smali` | Smali files produced by disassembling `system/vendor/app/*.odex` files with baksmali |
+| `output/deodex-classes` | `classes.dex` files reassembled from smali files with smali |
+| `output/deodex-apks` | Rebuilt APKs with injected `classes.dex` files; ready for use with JADX |
+| `output/apktool-apps` | Decoded resources (XML layouts, drawables, values, manifest) for each vendor app via apktool |
+| `output/apktool-framework` | Decoded resources from the vendor `framework-res.apk` itself via apktool |
 
 ## Compatibility
 I tried to make this script compatible cross-platform. At the time of writing I've only tested in on Debian Linux, but it's an intentionally lean Python script that has no dependencies beyond the Python standard library and relies on standard library tools for things like path and file manipulations.
@@ -32,8 +46,8 @@ I tried to make this script compatible cross-platform. At the time of writing I'
 ## Motivation
 If you want to view the source code for the vendor apps on the headunit, it's kind of a pain.
 Without a script, you have to do the following:
-- Find and download the `MRC<...>.zip` file on the internet
-- Extract the `MRC<...>.zip` file
+- Find and download the `MRC_EU_SW_v12_4.zip` file on the internet
+- Extract the `MRC_EU_SW_v12_4.zip` file
 - Within the extracted file contents, locate the `SwUpdate.mdt` file
 - Extract the `SwUpdate.mdt` file (it's just a zip archive itself)
 - Download the [smali and baksmali .jar files](https://bitbucket.org/JesusFreke/smali/downloads/)
@@ -48,6 +62,28 @@ This is a lot of effort and there are also some non-trivial things you need to p
 to ensure that everything baksmalis correctly (e.g., you need to point to the `system/framework` and `system/vendor/framework` directories). This is time-consuming, error-prone and less reproducible by others.
 
 By having a script automate this process, I hope other devs can get up to speed quickly with the headunit code.
+
+## About Mitsubishi's Custom `framework-res.apk`
+- Mitsubishi developed the headunit software and licensed it to Honda
+- On a stock Android 4.2.2 system, there's a single Android framework, including the base Android theme (Holo), stock layouts, drawables, strings, etc.
+- But Mitsubishi replaced and extended the entire Android framework resource layer
+- Unlike stock Android, there is NO `/system/framework/framework-res.apk` file
+- Instead, Mitsubishi shipped their own, located at `/system/vendor/framework/framework-res.apk`
+- The `/system/vendor/framework/framework-res.apk` file is approx. 38 MB
+- This custom `framework-res.apk` contains all 4.2.2 AOSP resources AND Mitsubishi resources
+- The Mitsubishi resources include:
+	- Vehicle-related layouts and drawables, custom themes
+	- Resources for their custom Views in `UiLib.odex`
+- This custom `framework-res.apk` contains several Mitsubishi-specific layouts
+- Many files in this custom `framework-res.apk` are from the AOSP
+- Many files in this custom `framework-res.apk` are Mitsubishi-specific
+- The [AOSP 4.2.2 framework resources](https://android.googlesource.com/platform/frameworks/base/+/android-4.2.2_r1/core/res/res/) are available online, useful for diffing against our `framework-res.apk`
+- `/system/vendor/framework` contains exclusively `framework-res.apk` AND `*.jar` and `*.odex` pairs
+- Every `/system/vendor/framework/*.jar` file has had its `classes.dex` file stripped
+- Custom Mitsubishi views are defined in the `UiLib.jar` and `UiLib.odex` pair
+- Apps are in `/system/app/` and `/system/vendor/app`
+- These app dirs consist exclusively of `<AppName>.apk` and `<AppName>.odex` pairs
+- For apps, `classes.dex` are stripped from all `*.apk` files, the only bytecode is in the `*.odex` files
 
 ## Using apktool alongside JADX
 
@@ -64,7 +100,7 @@ JADX is great for constructing Java code; apktool is better for resource resolut
 	- Finds a different resource in modern Android SDK that happens to have the same ID
 		- Shows wrong name like `?android:attr/collapseContentDescription`
 - In reality, `0x108129a` is a reference to a drawable defined in Honda's `framework-res.apk`
-- JADX isn't correctly resolve the resource ID because it doesn't use framework-res.apk properly
+- JADX doesn't correctly resolve the resource ID because it doesn't use framework-res.apk properly
 - JADX uses hard-coded resource resolution w/ [jadx-core/src/main/resources/android/res-map.txt](https://github.com/skylot/jadx/blob/331c4aaa5ef0c6aa97fefafd1a818d5467040bd2/jadx-core/src/main/resources/android/res-map.txt)
 - This means there are two underlying issues with resource resolution in JADX:
 	- JADX maps resource IDs to resources that only exist in newer (> API 17) Android versions

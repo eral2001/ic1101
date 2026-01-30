@@ -4,33 +4,29 @@ import shutil
 import subprocess
 import sys
 from typing import List
-from urllib.request import urlretrieve
-from urllib.parse import urlparse
 import zipfile
 from dataclasses import dataclass
 
-DIR_NAME_UTILS = "utils"
+DIR_NAME_OUTPUT = "output"
+DIR_NAME_INPUT = "input"
 DIR_NAME_UNZIPPED_ZIP = "unzipped-zip"
 DIR_NAME_UNZIPPED_MDT = "unzipped-mdt"
-DIR_NAME_SMALI = "vendor-app-smali"
-DIR_NAME_VENDOR_APP_CLASSES = "vendor-app-classes"
-DIR_NAME_OUTPUT_VENDOR_APPS = "output-vendor-apps"
+DIR_NAME_SMALI = "deodex-smali"
+DIR_NAME_VENDOR_APP_CLASSES = "deodex-classes"
+DIR_NAME_OUTPUT_VENDOR_APPS = "deodex-apks"
 DIR_NAME_APKTOOL_APPS = "apktool-apps"
+DIR_NAME_APKTOOL_FRAMEWORK = "apktool-framework"
 
-URL_SMALI = "https://bitbucket.org/JesusFreke/smali/downloads/smali-2.5.2.jar"
-URL_BAKSMALI = "https://bitbucket.org/JesusFreke/smali/downloads/baksmali-2.5.2.jar"
-
-APKTOOL_JAR_NAME = "apktool_2.12.1.jar"
-
-
-def get_jar_name_smali() -> str:
-    parsed = urlparse(URL_SMALI)
-    return parsed.path.rstrip("/").split("/")[-1]
-
-
-def get_jar_name_baksmali() -> str:
-    parsed = urlparse(URL_BAKSMALI)
-    return parsed.path.rstrip("/").split("/")[-1]
+# Source URLs and SHA-256 sums for jars (provided for verification):
+# https://bitbucket.org/JesusFreke/smali/downloads/smali-2.5.2.jar
+#   sha256: 9544299578b16f771d8aa8eaefe0d3718ca03478c16f3c356f2fcf1366bfb116
+# https://bitbucket.org/JesusFreke/smali/downloads/baksmali-2.5.2.jar
+#   sha256: d3116248cce4f82ec5a31eb7f95ee75daff42ddf6eed0ab573973dc53fbad2e5
+# https://bitbucket.org/iBotPeaches/apktool/downloads/apktool_2.12.1.jar
+#   sha256: 66cf4524a4a45a7f56567d08b2c9b6ec237bcdd78cee69fd4a59c8a0243aeafa
+JAR_NAME_SMALI = "smali-2.5.2.jar"
+JAR_NAME_BAKSMALI = "baksmali-2.5.2.jar"
+JAR_NAME_APKTOOL = "apktool_2.12.1.jar"
 
 
 def get_script_dir() -> Path:
@@ -38,29 +34,19 @@ def get_script_dir() -> Path:
     return script_file.parent
 
 
-def get_build_dir() -> Path:
-    return get_script_dir() / "build"
+def get_output_dir() -> Path:
+    return get_script_dir() / DIR_NAME_OUTPUT
 
 
-def get_inputs_dir() -> Path:
-    return get_script_dir() / "inputs"
+def get_input_dir() -> Path:
+    return get_script_dir() / DIR_NAME_INPUT
 
 
-def download_file(url: str, output: Path) -> None:
-    try:
-        urlretrieve(url, filename=str(output))
-    except Exception as e:
-        sys.exit(f"Error downloading {url}: {e}")
-    print(f"Downloaded file to {output}")
 
-
-def delete_file_if_exists(file_path: str | Path):
-    p = Path(file_path)
-    try:
-        p.unlink(missing_ok=True)
-        return True if p.exists() is False else False
-    except Exception as e:
-        print(f"Error deleting {p}: {e}")
+def clean_dir(path: Path):
+    """Remove the directory if it exists."""
+    if path.exists():
+        shutil.rmtree(path)
 
 
 def reset_dir(path: Path):
@@ -77,19 +63,23 @@ class JarPaths:
     baksmali_jar: Path
 
 
-def download_jars(utils_dir: str | Path) -> JarPaths:
+def get_jars() -> JarPaths:
     """
-    Downloads smali and baksmali jars into utils_dir,
-    and return both paths in a struct.
+    Returns paths to smali and baksmali jars in the inputs directory,
+    after verifying they exist.
     """
-    jar_path_smali = Path(utils_dir) / get_jar_name_smali()
-    jar_path_baksmali = Path(utils_dir) / get_jar_name_baksmali()
+    inputs_dir = get_input_dir()
+    jar_path_smali = inputs_dir / JAR_NAME_SMALI
+    jar_path_baksmali = inputs_dir / JAR_NAME_BAKSMALI
 
-    delete_file_if_exists(jar_path_smali)
-    delete_file_if_exists(jar_path_baksmali)
-
-    download_file(URL_SMALI, jar_path_smali)
-    download_file(URL_BAKSMALI, jar_path_baksmali)
+    if not jar_path_smali.exists():
+        sys.exit(f"Error: {jar_path_smali} does not exist")
+    if not jar_path_smali.is_file():
+        sys.exit(f"Error: {jar_path_smali} is not a file")
+    if not jar_path_baksmali.exists():
+        sys.exit(f"Error: {jar_path_baksmali} does not exist")
+    if not jar_path_baksmali.is_file():
+        sys.exit(f"Error: {jar_path_baksmali} is not a file")
 
     return JarPaths(smali_jar=jar_path_smali, baksmali_jar=jar_path_baksmali)
 
@@ -139,13 +129,13 @@ def verify_file(file_path: Path) -> None:
         message = (
             "⚠️🐛 File doesn't match our expected format. Please open a bug report!"
         )
-        print(message)
+        print(message, file=sys.stderr)
         sys.exit(f"Error: path does not exist: {file_path}")
     if not file_path.is_file():
         message = (
             "⚠️🐛 File doesn't match our expected format. Please open a bug report!"
         )
-        print(message)
+        print(message, file=sys.stderr)
         sys.exit(f"Error: path exists but is not a file: '{file_path}'")
 
 
@@ -154,13 +144,13 @@ def verify_dir(dir_path: Path) -> None:
         message = (
             "⚠️🐛 File doesn't match our expected format. Please open a bug report!"
         )
-        print(message)
+        print(message, file=sys.stderr)
         sys.exit(f"Error: path does not exist: {dir_path}")
     if not dir_path.is_dir():
         message = (
             "⚠️🐛 File file doesn't match our expected format. Please open a bug report!"
         )
-        print(message)
+        print(message, file=sys.stderr)
         sys.exit(f"Error: path exists but is not a directory: {dir_path}")
 
 
@@ -218,11 +208,11 @@ def check_java_exists() -> None:
         print("Error: 'java' not found in your PATH.", file=sys.stderr)
         sys.exit(1)
     else:
-        print(f"Found Java at: {java_path}")
+        print(f"Found Java at: {java_path}", file=sys.stderr)
 
 
 def get_odex_paths(parent_dir: str | Path) -> list[Path]:
-    print(f"Getting paths to .odex files inside {parent_dir}")
+    print(f"Getting paths to .odex files inside {parent_dir}", file=sys.stderr)
     dir = Path(parent_dir)
     if not dir.is_dir():
         raise ValueError(f"{dir!r} is not a directory")
@@ -234,6 +224,14 @@ def get_odex_paths(parent_dir: str | Path) -> list[Path]:
             matches.append(odex_path)
 
     return matches
+
+
+def get_vendor_apk_paths(vendor_app_dir: Path) -> list[Path]:
+    """Returns paths to all .apk files in the vendor app directory."""
+    print(f"Getting paths to .apk files inside {vendor_app_dir}", file=sys.stderr)
+    if not vendor_app_dir.is_dir():
+        raise ValueError(f"{vendor_app_dir!r} is not a directory")
+    return sorted(vendor_app_dir.glob("*.apk"))
 
 
 def disassemble_odex(
@@ -297,7 +295,7 @@ def disassemble_odex(
     ]
 
     # Execute
-    print("Running:", " ".join(cmd))
+    print("Running:", " ".join(cmd), file=sys.stderr)
     subprocess.run(
         cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
     )
@@ -339,7 +337,7 @@ def assemble_smali_to_dex(
         "-o",
         str(dex_path),
     ]
-    print("Running:", " ".join(cmd))
+    print("Running:", " ".join(cmd), file=sys.stderr)
     subprocess.run(cmd, check=True)
 
     return dex_path
@@ -415,7 +413,7 @@ def process_apps(
     # Get paths to all of the .odex files in input_apps_dir.
     odex_paths = get_odex_paths(input_apps_dir)
     # Deodex the .odex files to produce .smali files.
-    print(f"Attempting to deodex .odex files from {input_apps_dir}")
+    print(f"Attempting to deodex .odex files from {input_apps_dir}", file=sys.stderr)
     for odex_path in odex_paths:
         disassemble_odex(
             baksmali_jar=jars.baksmali_jar,
@@ -425,7 +423,7 @@ def process_apps(
         )
 
     # Use the .smali files to generate classes.dex files.
-    print(f"Attempting to build classes.dex from smali files")
+    print("Attempting to build classes.dex from smali files", file=sys.stderr)
     for odex_path in odex_paths:
         assemble_smali_to_dex(
             smali_jar=jars.smali_jar,
@@ -450,7 +448,7 @@ def get_apktool_jar() -> Path:
     """
     Returns the path to the apktool jar in the inputs directory.
     """
-    apktool_jar = get_inputs_dir() / APKTOOL_JAR_NAME
+    apktool_jar = get_input_dir() / JAR_NAME_APKTOOL
     if not apktool_jar.is_file():
         sys.exit(f"Error: apktool jar not found at {apktool_jar}")
     return apktool_jar
@@ -476,7 +474,7 @@ def install_apktool_framework(apktool_jar: Path, framework_res_apk: Path) -> Non
         "mitsubishi",
     ]
 
-    print("Running:", " ".join(cmd))
+    print("Running:", " ".join(cmd), file=sys.stderr)
     subprocess.run(cmd, check=True)
 
 
@@ -505,43 +503,67 @@ def decode_apk_with_apktool(
         str(output_dir),
     ]
 
-    print("Running:", " ".join(cmd))
+    print("Running:", " ".join(cmd), file=sys.stderr)
     subprocess.run(cmd, check=True)
 
 
 def process_apps_with_apktool(
     apktool_jar: Path,
     unzipped_mdt_dir: Path,
-    input_apps_dir: Path,
+    apk_paths: list[Path],
     output_apktool_dir: Path,
-    odex_paths: list[Path],
 ) -> None:
     """
     Process apps with apktool to decode resources.
 
     :param apktool_jar: Path to the apktool jar file
     :param unzipped_mdt_dir: Path to the root of your unzipped image (contains the Android filesystem)
-    :param input_apps_dir: Path to the directory containing the *.apk and *.odex files
+    :param apk_paths: List of .apk file paths to decode
     :param output_apktool_dir: Path where decoded APK resources will be written
-    :param odex_paths: List of .odex paths that were processed (to match existing behavior)
     """
     # Clean up the output directory.
     reset_dir(output_apktool_dir)
 
     # Install the Mitsubishi framework into apktool.
     framework_res_apk = unzipped_mdt_dir / "system" / "vendor" / "framework" / "framework-res.apk"
-    print("Installing Mitsubishi framework into apktool")
+    print("Installing Mitsubishi framework into apktool", file=sys.stderr)
     install_apktool_framework(apktool_jar, framework_res_apk)
 
-    # Decode each APK that has a matching .odex file.
-    print("Decoding APKs with apktool")
-    for odex_path in odex_paths:
-        apk_name = odex_path.stem
-        input_apk = input_apps_dir / f"{apk_name}.apk"
-        output_dir = output_apktool_dir / f"{apk_name}-resources"
+    # Decode each APK.
+    print("Decoding APKs with apktool", file=sys.stderr)
+    for apk_path in apk_paths:
+        apk_name = apk_path.stem
+        output_dir = output_apktool_dir / f"{apk_name}"
 
-        print(f"Decoding {apk_name}.apk")
-        decode_apk_with_apktool(apktool_jar, input_apk, output_dir)
+        print(f"Decoding {apk_name}.apk", file=sys.stderr)
+        decode_apk_with_apktool(apktool_jar, apk_path, output_dir)
+        print(f"apktool returned a zero status code; output likely written to {DIR_NAME_OUTPUT}/{DIR_NAME_APKTOOL_APPS}/{apk_name}", file=sys.stderr)
+
+
+def decode_framework_with_apktool(
+    apktool_jar: Path,
+    unzipped_mdt_dir: Path,
+    output_framework_dir: Path,
+) -> None:
+    """
+    Decodes the vendor framework-res.apk using apktool.
+
+    :param apktool_jar: Path to the apktool jar file
+    :param unzipped_mdt_dir: Path to the root of your unzipped image (contains the Android filesystem)
+    :param output_framework_dir: Path where decoded framework resources will be written
+    """
+    # Clean up the output directory if it exists; let apktool create it.
+    clean_dir(output_framework_dir)
+
+    # Install the Mitsubishi framework into apktool.
+    framework_res_apk = unzipped_mdt_dir / "system" / "vendor" / "framework" / "framework-res.apk"
+    print("Installing Mitsubishi framework into apktool", file=sys.stderr)
+    install_apktool_framework(apktool_jar, framework_res_apk)
+
+    # Decode the framework-res.apk itself.
+    print("Decoding framework-res.apk with apktool", file=sys.stderr)
+    decode_apk_with_apktool(apktool_jar, framework_res_apk, output_framework_dir)
+    print(f"apktool returned a zero status code; output likely written to {DIR_NAME_OUTPUT}/{DIR_NAME_APKTOOL_FRAMEWORK}", file=sys.stderr)
 
 
 def main():
@@ -551,67 +573,81 @@ def main():
     parser.add_argument(
         "zip_path", type=zip_path_type, help="Path to an existing .zip file"
     )
+    parser.add_argument(
+        "--steps",
+        choices=["deodex", "apktool-apps", "apktool-framework", "all"],
+        default="all",
+        help="Which processing steps to run: 'deodex' (baksmali/smali/odex), 'apktool-apps' (app resource decoding), 'apktool-framework' (framework resource decoding), or 'all' (default)",
+    )
     args = parser.parse_args()
 
-    # Get the top-level build directory and ensure it's in a clean state.
-    build_dir = get_build_dir()
-    reset_dir(build_dir)
-    print(f"Output will be written to {build_dir}")
+    # Get the top-level output directory and ensure it's in a clean state.
+    output_dir = get_output_dir()
+    reset_dir(output_dir)
+    print(f"Output will be written to {output_dir}", file=sys.stderr)
 
-    print("Checking if you have java installed. Needed to run smali and baksmali.")
+    print("Checking if Java is installed. Needed to run smali, baksmali, and apktool.", file=sys.stderr)
     check_java_exists()
 
     # Will contain the unzipped MRC_<...>.zip .zip file.
-    unzipped_zip_dir = build_dir / DIR_NAME_UNZIPPED_ZIP
+    unzipped_zip_dir = output_dir / DIR_NAME_UNZIPPED_ZIP
     # Will contain the unzipped SwUpdate.mdt file.
-    unzipped_mdt_dir = build_dir / DIR_NAME_UNZIPPED_MDT
-    # Will contain the smali<...>.jar and baksmali<...>.jar.
-    utils_dir = build_dir / DIR_NAME_UTILS
+    unzipped_mdt_dir = output_dir / DIR_NAME_UNZIPPED_MDT
     # Will contain .smali files from deodexing system/vendor/app/*.odex files.
-    vendor_app_smali_dir = build_dir / DIR_NAME_SMALI
+    vendor_app_smali_dir = output_dir / DIR_NAME_SMALI
     # Will contain classes.dex files from reassembling .smali files.
-    vendor_app_classes_dir = build_dir / DIR_NAME_VENDOR_APP_CLASSES
+    vendor_app_classes_dir = output_dir / DIR_NAME_VENDOR_APP_CLASSES
     # Will contain reconstructed system/vendor/app/*.apk files with classes.dex files.
-    output_vendor_apps_dir = build_dir / DIR_NAME_OUTPUT_VENDOR_APPS
+    output_vendor_apps_dir = output_dir / DIR_NAME_OUTPUT_VENDOR_APPS
     # Will contain decoded APK resources from apktool.
-    apktool_apps_dir = build_dir / DIR_NAME_APKTOOL_APPS
+    apktool_apps_dir = output_dir / DIR_NAME_APKTOOL_APPS
+    # Will contain decoded framework resources from apktool.
+    apktool_framework_dir = output_dir / DIR_NAME_APKTOOL_FRAMEWORK
 
     # Extract contents of MRC_<...>.zip file.
     reset_dir(unzipped_zip_dir)
-    print(f"Extracting .zip archive to {unzipped_zip_dir}")
+    print(f"Extracting .zip archive to {unzipped_zip_dir}", file=sys.stderr)
     mdt_file = unzip_outer_zip(args.zip_path, unzipped_zip_dir)
 
     # Extract contents of SwUpdate.mdt file.
     reset_dir(unzipped_mdt_dir)
-    print(f"Extracting .mdt archive to {unzipped_mdt_dir}")
+    print(f"Extracting .mdt archive to {unzipped_mdt_dir}", file=sys.stderr)
     unzip_mdt_zip(mdt_file, unzipped_mdt_dir)
 
-    print(f"The Android file system has been extracted to '{unzipped_mdt_dir}'.")
-
-    print(f"Attempting to download smali and baksmali jars.")
-    reset_dir(utils_dir)
-
-    jars = download_jars(utils_dir)
+    print(f"The Android file system has been extracted to '{unzipped_mdt_dir}'.", file=sys.stderr)
 
     vendor_apps_dir = unzipped_mdt_dir / "system" / "vendor" / "app"
-    odex_paths = process_apps(
-        unzipped_mdt_dir=unzipped_mdt_dir,
-        input_apps_dir=vendor_apps_dir,
-        jars=jars,
-        output_smali_dir=vendor_app_smali_dir,
-        output_classes_dir=vendor_app_classes_dir,
-        output_apps_dir=output_vendor_apps_dir,
-    )
+    steps = args.steps
 
-    # Process apps with apktool to decode resources.
-    apktool_jar = get_apktool_jar()
-    process_apps_with_apktool(
-        apktool_jar=apktool_jar,
-        unzipped_mdt_dir=unzipped_mdt_dir,
-        input_apps_dir=vendor_apps_dir,
-        output_apktool_dir=apktool_apps_dir,
-        odex_paths=odex_paths,
-    )
+    if steps in ("deodex", "all"):
+        print("Verifying smali and baksmali jars exist in inputs directory.", file=sys.stderr)
+        jars = get_jars()
+        process_apps(
+            unzipped_mdt_dir=unzipped_mdt_dir,
+            input_apps_dir=vendor_apps_dir,
+            jars=jars,
+            output_smali_dir=vendor_app_smali_dir,
+            output_classes_dir=vendor_app_classes_dir,
+            output_apps_dir=output_vendor_apps_dir,
+        )
+
+    if steps in ("apktool-apps", "all"):
+        apktool_jar = get_apktool_jar()
+        apk_paths = get_vendor_apk_paths(vendor_apps_dir)
+        process_apps_with_apktool(
+            apktool_jar=apktool_jar,
+            unzipped_mdt_dir=unzipped_mdt_dir,
+            apk_paths=apk_paths,
+            output_apktool_dir=apktool_apps_dir,
+        )
+
+    if steps in ("apktool-framework", "all"):
+        apktool_jar = get_apktool_jar()
+        decode_framework_with_apktool(
+            apktool_jar=apktool_jar,
+            unzipped_mdt_dir=unzipped_mdt_dir,
+            output_framework_dir=apktool_framework_dir,
+        )
 
 
 if __name__ == "__main__":
