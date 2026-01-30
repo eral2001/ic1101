@@ -95,12 +95,12 @@ The AirCon app's `mm_52_01_01` layout rendered with each Mitsubishi color theme:
 
 | Theme | Render |
 |---|---|
-| ThemeBlue | ![ThemeBlue](examples/AirCon--mm_52_01_01--ThemeBlue.png) |
-| ThemeAmber | ![ThemeAmber](examples/AirCon--mm_52_01_01--ThemeAmber.png) |
-| ThemeBlueGreen | ![ThemeBlueGreen](examples/AirCon--mm_52_01_01--ThemeBlueGreen.png) |
-| ThemeGray | ![ThemeGray](examples/AirCon--mm_52_01_01--ThemeGray.png) |
-| ThemeRed | ![ThemeRed](examples/AirCon--mm_52_01_01--ThemeRed.png) |
-| ThemeViolet | ![ThemeViolet](examples/AirCon--mm_52_01_01--ThemeViolet.png) |
+| ThemeBlue | <img src="examples/AirCon--mm_52_01_01--ThemeBlue.png" width="400"> |
+| ThemeAmber | <img src="examples/AirCon--mm_52_01_01--ThemeAmber.png" width="400"> |
+| ThemeBlueGreen | <img src="examples/AirCon--mm_52_01_01--ThemeBlueGreen.png" width="400"> |
+| ThemeGray | <img src="examples/AirCon--mm_52_01_01--ThemeGray.png" width="400"> |
+| ThemeRed | <img src="examples/AirCon--mm_52_01_01--ThemeRed.png" width="400"> |
+| ThemeViolet | <img src="examples/AirCon--mm_52_01_01--ThemeViolet.png" width="400"> |
 
 ## Accuracy and Limitations
 

@@ -113,9 +113,15 @@ def main():
     args = parser.parse_args()
 
     # Validate inputs
-    assert args.apps_dir.exists(), f"Apps directory does not exist: {args.apps_dir}"
-    assert args.apps_dir.is_dir(), f"Apps directory is not a directory: {args.apps_dir}"
-    assert not args.output_dir.exists(), f"Output directory already exists: {args.output_dir}"
+    if not args.apps_dir.exists():
+        print(f"Error: Apps directory does not exist: {args.apps_dir}", file=sys.stderr)
+        sys.exit(1)
+    if not args.apps_dir.is_dir():
+        print(f"Error: Apps path is not a directory: {args.apps_dir}", file=sys.stderr)
+        sys.exit(1)
+    if args.output_dir.exists():
+        print(f"Error: Output directory already exists: {args.output_dir}", file=sys.stderr)
+        sys.exit(1)
 
     # Discover all (app_subdir, layout_xml) pairs, grouped by app
     jobs_by_app: dict[Path, list[Path]] = defaultdict(list)
@@ -152,10 +158,18 @@ def main():
         print(f"Error: Fonts directory not found: {args.fonts_dir}", file=sys.stderr)
         sys.exit(1)
 
-    assert args.system_fonts_file.exists(), f"System fonts file does not exist: {args.system_fonts_file}"
-    assert args.system_fonts_file.is_file(), f"System fonts path is not a file: {args.system_fonts_file}"
-    assert args.fallback_fonts_file.exists(), f"Fallback fonts file does not exist: {args.fallback_fonts_file}"
-    assert args.fallback_fonts_file.is_file(), f"Fallback fonts path is not a file: {args.fallback_fonts_file}"
+    if not args.system_fonts_file.exists():
+        print(f"Error: System fonts file does not exist: {args.system_fonts_file}", file=sys.stderr)
+        sys.exit(1)
+    if not args.system_fonts_file.is_file():
+        print(f"Error: System fonts path is not a file: {args.system_fonts_file}", file=sys.stderr)
+        sys.exit(1)
+    if not args.fallback_fonts_file.exists():
+        print(f"Error: Fallback fonts file does not exist: {args.fallback_fonts_file}", file=sys.stderr)
+        sys.exit(1)
+    if not args.fallback_fonts_file.is_file():
+        print(f"Error: Fallback fonts path is not a file: {args.fallback_fonts_file}", file=sys.stderr)
+        sys.exit(1)
 
     font_config = create_font_config(args.fonts_dir, args.system_fonts_file, args.fallback_fonts_file)
 

@@ -24,7 +24,7 @@ def deref_dimension(value: str | None, ctx: RenderContext) -> Dimension:
         resolved = ctx.app_dimens.get(value[7:])
         if resolved is None:
             print(f"Warning: Unknown app dimen: {value}")
-            return None
+            return DimensionWrapContent()
         return deref_dimension(resolved, ctx)
 
     # Framework dimen reference
@@ -32,7 +32,7 @@ def deref_dimension(value: str | None, ctx: RenderContext) -> Dimension:
         resolved = ctx.framework_dimens.get(value[15:])
         if resolved is None:
             print(f"Warning: Unknown framework dimen: {value}")
-            return None
+            return DimensionWrapContent()
         return deref_dimension(resolved, ctx)
     
     # Theme attribute reference
@@ -55,9 +55,9 @@ def deref_dimension(value: str | None, ctx: RenderContext) -> Dimension:
         resolved = ctx.resolve_theme_attr(attr_name)
         if resolved is None:
             print(f"Warning: theme attr not found: {value}")
-            return None
+            return DimensionWrapContent()
         return deref_dimension(resolved, ctx)
-    
+
     # Literal value with optional unit
     match = DIMENSION_PATTERN.match(value)
     if match:

@@ -53,8 +53,10 @@ def parse_selector_drawable(xml_path: Path, app_drawables: dict[str, Path], fram
         default_item = None
         for item in items:
             # Check if this item has any state attributes
-            has_state = any(attr.startswith('state_') for attr in item.attrib.keys()
-                          if attr.startswith('{http://schemas.android.com/apk/res/android}state_') or attr.startswith('android:state_'))
+            has_state = any(
+                attr.startswith('{http://schemas.android.com/apk/res/android}state_') or attr.startswith('android:state_')
+                for attr in item.attrib.keys()
+            )
 
             if not has_state:
                 # This is a default item (no state conditions)
@@ -194,11 +196,11 @@ def get_drawable_intrinsic_size(xml_path: Path, app_drawables: dict[str, Path], 
     if drawable_path.suffix.lower() in ['.png', '.jpg', '.jpeg']:
         try:
             from PIL import Image
-            img = Image.open(drawable_path)
-            # For 9-patch, return content size (minus 2px border)
-            if drawable_path.name.endswith('.9.png'):
-                return (img.width - 2, img.height - 2)
-            return (img.width, img.height)
+            with Image.open(drawable_path) as img:
+                # For 9-patch, return content size (minus 2px border)
+                if drawable_path.name.endswith('.9.png'):
+                    return (img.width - 2, img.height - 2)
+                return (img.width, img.height)
         except Exception:
             return None
 
