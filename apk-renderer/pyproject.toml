@@ -1,0 +1,18 @@
+[project]
+name = "apk-renderer"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+    "pillow",
+]
+
+[project.scripts]
+render = "main:main"
+bulk-render = "bulk_render:main"
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
