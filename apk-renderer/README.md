@@ -25,9 +25,9 @@ uv sync
 Render single layout .xml file:
 ```sh
 uv run render \
-  --framework-dir ../apk-rebuilder/output/apktool-framework \
-  --app-dir ../apk-rebuilder/output/apktool-apps/AirCon \
-  --xml-file ../apk-rebuilder/output/apktool-apps/AirCon/res/layout/mm_52_01_01.xml \
+  --framework-dir ../apk-rebuilder/output/apktool-vendor-framework \
+  --app-dir ../apk-rebuilder/output/apktool-vendor-apps/AirCon \
+  --xml-file ../apk-rebuilder/output/apktool-vendor-apps/AirCon/res/layout/mm_52_01_01.xml \
   --fonts-dir ../apk-rebuilder/output/unzipped-mdt/system/fonts/ \
   --system-fonts-file ../apk-rebuilder/output/unzipped-mdt/system/etc/system_fonts.xml \
   --fallback-fonts-file ../apk-rebuilder/output/unzipped-mdt/system/etc/fallback_fonts.xml \
@@ -44,8 +44,8 @@ Optional flags:
 Render all layouts across all apps:
 ```sh
 uv run bulk-render \
-  --framework-dir ../apk-rebuilder/output/apktool-framework \
-  --apps-dir ../apk-rebuilder/output/apktool-apps \
+  --framework-dir ../apk-rebuilder/output/apktool-vendor-framework \
+  --apps-dir ../apk-rebuilder/output/apktool-vendor-apps \
   --fonts-dir ../apk-rebuilder/output/unzipped-mdt/system/fonts \
   --system-fonts-file ../apk-rebuilder/output/unzipped-mdt/system/etc/system_fonts.xml \
   --fallback-fonts-file ../apk-rebuilder/output/unzipped-mdt/system/etc/fallback_fonts.xml \

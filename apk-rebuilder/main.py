@@ -11,11 +11,21 @@ DIR_NAME_OUTPUT = "output"
 DIR_NAME_INPUT = "input"
 DIR_NAME_UNZIPPED_ZIP = "unzipped-zip"
 DIR_NAME_UNZIPPED_MDT = "unzipped-mdt"
-DIR_NAME_SMALI = "deodex-smali"
-DIR_NAME_VENDOR_APP_CLASSES = "deodex-classes"
-DIR_NAME_OUTPUT_VENDOR_APPS = "deodex-apks"
-DIR_NAME_APKTOOL_APPS = "apktool-apps"
-DIR_NAME_APKTOOL_FRAMEWORK = "apktool-framework"
+DIR_NAME_SYSTEM_APP_SMALI = "system-app-smali"
+DIR_NAME_SYSTEM_APP_CLASSES = "system-app-classes"
+DIR_NAME_SYSTEM_APP_APKS_REPACKED = "system-app-apks-repacked"
+DIR_NAME_VENDOR_APP_SMALI = "vendor-app-smali"
+DIR_NAME_VENDOR_APP_CLASSES = "vendor-app-classes"
+DIR_NAME_VENDOR_APP_APKS_REPACKED = "vendor-app-apks-repacked"
+DIR_NAME_SYSTEM_FRAMEWORK_SMALI = "system-framework-smali"
+DIR_NAME_SYSTEM_FRAMEWORK_CLASSES = "system-framework-classes"
+DIR_NAME_SYSTEM_FRAMEWORK_JARS_REPACKED = "system-framework-jars-repacked"
+DIR_NAME_VENDOR_FRAMEWORK_SMALI = "vendor-framework-smali"
+DIR_NAME_VENDOR_FRAMEWORK_CLASSES = "vendor-framework-classes"
+DIR_NAME_VENDOR_FRAMEWORK_JARS_REPACKED = "vendor-framework-jars-repacked"
+DIR_NAME_APKTOOL_SYSTEM_APPS = "apktool-system-apps"
+DIR_NAME_APKTOOL_VENDOR_APPS = "apktool-vendor-apps"
+DIR_NAME_APKTOOL_VENDOR_FRAMEWORK = "apktool-vendor-framework"
 
 # Source URLs and SHA-256 sums for jars (provided for verification):
 # https://bitbucket.org/JesusFreke/smali/downloads/smali-2.5.2.jar
@@ -211,8 +221,9 @@ def check_java_exists() -> None:
         print(f"Found Java at: {java_path}", file=sys.stderr)
 
 
-def get_odex_paths(parent_dir: str | Path) -> list[Path]:
-    print(f"Getting paths to .odex files inside {parent_dir}", file=sys.stderr)
+def get_apk_paired_odex_paths(parent_dir: str | Path) -> list[Path]:
+    """Returns paths to .odex files that have a matching .apk companion."""
+    print(f"Getting paths to .odex files (with .apk companions) inside {parent_dir}", file=sys.stderr)
     dir = Path(parent_dir)
     if not dir.is_dir():
         raise ValueError(f"{dir!r} is not a directory")
@@ -226,7 +237,31 @@ def get_odex_paths(parent_dir: str | Path) -> list[Path]:
     return matches
 
 
-def get_vendor_apk_paths(vendor_app_dir: Path) -> list[Path]:
+def get_jar_paired_odex_paths(parent_dir: str | Path) -> list[Path]:
+    """Returns paths to .odex files that have a matching .jar companion."""
+    print(f"Getting paths to .odex files (with .jar companions) inside {parent_dir}", file=sys.stderr)
+    dir = Path(parent_dir)
+    if not dir.is_dir():
+        raise ValueError(f"{dir!r} is not a directory")
+
+    matches: List[Path] = []
+    for odex_path in dir.glob("*.odex"):
+        jar_path = odex_path.with_suffix(".jar")
+        if jar_path.exists() and jar_path.is_file():
+            matches.append(odex_path)
+
+    return matches
+
+
+def get_system_app_apk_paths(system_app_dir: Path) -> list[Path]:
+    """Returns paths to all .apk files in the system app directory."""
+    print(f"Getting paths to .apk files inside {system_app_dir}", file=sys.stderr)
+    if not system_app_dir.is_dir():
+        raise ValueError(f"{system_app_dir!r} is not a directory")
+    return sorted(system_app_dir.glob("*.apk"))
+
+
+def get_vendor_app_apk_paths(vendor_app_dir: Path) -> list[Path]:
     """Returns paths to all .apk files in the vendor app directory."""
     print(f"Getting paths to .apk files inside {vendor_app_dir}", file=sys.stderr)
     if not vendor_app_dir.is_dir():
@@ -344,26 +379,22 @@ def assemble_smali_to_dex(
 
 
 def rebuild_apk_with_dex(
-    unzipped_mdt_dir: Path, classes_dir: Path, output_apps_dir: Path, odex_path: Path
+    original_apk: Path, classes_dir: Path, output_apps_dir: Path, stem: str
 ) -> Path:
     """
     Rebuild an APK by injecting a freshly assembled classes.dex.
 
-    :param unzipped_mdt: Path to the root of your unzipped image (contains the Android filesystem)
+    :param original_apk: Path to the original APK file
     :param classes_dir: Path to the directory containing per-APK classes.dex subdirs
     :param output_apps_dir: Path where rebuilt APKs should be written
-    :param odex_path: Path to the original .odex file (stem used to find matching APK & dex)
+    :param stem: Name stem (e.g. "AirCon") used to locate the classes.dex subdir and name the output
     :return: Path to the newly created APK
     """
-    stem = odex_path.stem
-
     # Locate the generated classes.dex
     dex_path = classes_dir / stem / "classes.dex"
     if not dex_path.is_file():
         raise FileNotFoundError(f"Missing classes.dex at {dex_path}")
 
-    # Locate the original APK under unzipped_mdt
-    original_apk = unzipped_mdt_dir / "system" / "vendor" / "app" / f"{stem}.apk"
     if not original_apk.is_file():
         raise FileNotFoundError(f"Original APK not found at {original_apk}")
 
@@ -386,7 +417,105 @@ def rebuild_apk_with_dex(
     return rebuilt_apk
 
 
-def process_apps(
+def rebuild_jar_with_dex(
+    original_jar: Path, classes_dir: Path, output_jars_dir: Path, stem: str
+) -> Path:
+    """
+    Rebuild a JAR by injecting a freshly assembled classes.dex.
+
+    :param original_jar: Path to the original JAR file
+    :param classes_dir: Path to the directory containing per-lib classes.dex subdirs
+    :param output_jars_dir: Path where rebuilt JARs should be written
+    :param stem: Name stem (e.g. "UiLib") used to locate the classes.dex subdir and name the output
+    :return: Path to the newly created JAR
+    """
+    # Locate the generated classes.dex
+    dex_path = classes_dir / stem / "classes.dex"
+    if not dex_path.is_file():
+        raise FileNotFoundError(f"Missing classes.dex at {dex_path}")
+
+    if not original_jar.is_file():
+        raise FileNotFoundError(f"Original JAR not found at {original_jar}")
+
+    # Prepare output directory & path
+    output_jars_dir.mkdir(parents=True, exist_ok=True)
+    rebuilt_jar = output_jars_dir / f"{stem}.jar"
+
+    # Rebuild: copy original entries + inject classes.dex at root
+    with zipfile.ZipFile(original_jar, "r") as src_zip:
+        with zipfile.ZipFile(
+            rebuilt_jar, "w", compression=zipfile.ZIP_DEFLATED
+        ) as out_zip:
+            # Copy all original entries
+            for item in src_zip.infolist():
+                data = src_zip.read(item.filename)
+                out_zip.writestr(item, data)
+            # Now inject the new classes.dex
+            out_zip.write(dex_path, arcname="classes.dex")
+
+    return rebuilt_jar
+
+
+def process_system_apps(
+    unzipped_mdt_dir: Path,
+    input_apps_dir: Path,
+    jars: JarPaths,
+    output_smali_dir: Path,
+    output_classes_dir: Path,
+    output_apps_dir: Path,
+) -> list[Path]:
+    """
+    Process system apps (system/app/*.odex).
+
+    :param unzipped_mdt_dir: Path to the root of your unzipped image (contains the Android filesystem)
+    :param input_apps_dir: Path to the directory containing the *.apk and *.odex files
+    :param jars: Class containing paths to baksmali and smali .jar files
+    :param output_smali_dir: Where smali files will be written (under <output_smali_dir>/<apk-name>)
+    :param output_classes_dir: Where classes.dex files will be written (under <output_classes_dir>/<apk-name>)
+    :param output_apps_dir: Where rebuilt APKs (APKs with injected classes.dex files) will be written
+    :return: List of paths to .odex files that were processed
+    """
+    # Clean up the directories.
+    reset_dir(output_smali_dir)
+    reset_dir(output_classes_dir)
+    reset_dir(output_apps_dir)
+
+    # Get paths to all of the .odex files in input_apps_dir.
+    odex_paths = get_apk_paired_odex_paths(input_apps_dir)
+    # Deodex the .odex files to produce .smali files.
+    print(f"Attempting to deodex system app .odex files from {input_apps_dir}", file=sys.stderr)
+    for odex_path in odex_paths:
+        disassemble_odex(
+            baksmali_jar=jars.baksmali_jar,
+            unzipped_mdt_dir=unzipped_mdt_dir,
+            output_smali_dir=output_smali_dir,
+            input_odex=odex_path,
+        )
+
+    # Use the .smali files to generate classes.dex files.
+    print("Attempting to build classes.dex from system app smali files", file=sys.stderr)
+    for odex_path in odex_paths:
+        assemble_smali_to_dex(
+            smali_jar=jars.smali_jar,
+            smali_dir=output_smali_dir,
+            classes_dir=output_classes_dir,
+            apk_name=odex_path.stem,
+        )
+
+    # Inject the classes.dex files into copies of the APKs.
+    for odex_path in odex_paths:
+        original_apk = unzipped_mdt_dir / "system" / "app" / f"{odex_path.stem}.apk"
+        rebuild_apk_with_dex(
+            original_apk=original_apk,
+            classes_dir=output_classes_dir,
+            output_apps_dir=output_apps_dir,
+            stem=odex_path.stem,
+        )
+
+    return odex_paths
+
+
+def process_vendor_apps(
     unzipped_mdt_dir: Path,
     input_apps_dir: Path,
     jars: JarPaths,
@@ -411,7 +540,7 @@ def process_apps(
     reset_dir(output_apps_dir)
 
     # Get paths to all of the .odex files in input_apps_dir.
-    odex_paths = get_odex_paths(input_apps_dir)
+    odex_paths = get_apk_paired_odex_paths(input_apps_dir)
     # Deodex the .odex files to produce .smali files.
     print(f"Attempting to deodex .odex files from {input_apps_dir}", file=sys.stderr)
     for odex_path in odex_paths:
@@ -434,11 +563,130 @@ def process_apps(
 
     # Inject the classes.dex files into copies of the APKs.
     for odex_path in odex_paths:
+        original_apk = unzipped_mdt_dir / "system" / "vendor" / "app" / f"{odex_path.stem}.apk"
         rebuild_apk_with_dex(
-            unzipped_mdt_dir=unzipped_mdt_dir,
+            original_apk=original_apk,
             classes_dir=output_classes_dir,
             output_apps_dir=output_apps_dir,
-            odex_path=odex_path,
+            stem=odex_path.stem,
+        )
+
+    return odex_paths
+
+
+def process_system_framework_libs(
+    unzipped_mdt_dir: Path,
+    input_framework_dir: Path,
+    jars: JarPaths,
+    output_smali_dir: Path,
+    output_classes_dir: Path,
+    output_jars_dir: Path,
+) -> list[Path]:
+    """
+    Process system framework libraries (system/framework/*.odex).
+
+    :param unzipped_mdt_dir: Path to the root of your unzipped image (contains the Android filesystem)
+    :param input_framework_dir: Path to the directory containing the *.jar and *.odex files
+    :param jars: Class containing paths to baksmali and smali .jar files
+    :param output_smali_dir: Where smali files will be written (under <output_smali_dir>/<lib-name>)
+    :param output_classes_dir: Where classes.dex files will be written (under <output_classes_dir>/<lib-name>)
+    :param output_jars_dir: Where rebuilt JARs (JARs with injected classes.dex files) will be written
+    :return: List of paths to .odex files that were processed
+    """
+    # Clean up the directories.
+    reset_dir(output_smali_dir)
+    reset_dir(output_classes_dir)
+    reset_dir(output_jars_dir)
+
+    # Get paths to all of the .odex files in input_framework_dir.
+    odex_paths = get_jar_paired_odex_paths(input_framework_dir)
+    # Deodex the .odex files to produce .smali files.
+    print(f"Attempting to deodex system framework .odex files from {input_framework_dir}", file=sys.stderr)
+    for odex_path in odex_paths:
+        disassemble_odex(
+            baksmali_jar=jars.baksmali_jar,
+            unzipped_mdt_dir=unzipped_mdt_dir,
+            output_smali_dir=output_smali_dir,
+            input_odex=odex_path,
+        )
+
+    # Use the .smali files to generate classes.dex files.
+    print("Attempting to build classes.dex from system framework smali files", file=sys.stderr)
+    for odex_path in odex_paths:
+        assemble_smali_to_dex(
+            smali_jar=jars.smali_jar,
+            smali_dir=output_smali_dir,
+            classes_dir=output_classes_dir,
+            apk_name=odex_path.stem,
+        )
+
+    # Inject the classes.dex files into copies of the JARs.
+    for odex_path in odex_paths:
+        original_jar = unzipped_mdt_dir / "system" / "framework" / f"{odex_path.stem}.jar"
+        rebuild_jar_with_dex(
+            original_jar=original_jar,
+            classes_dir=output_classes_dir,
+            output_jars_dir=output_jars_dir,
+            stem=odex_path.stem,
+        )
+
+    return odex_paths
+
+
+def process_vendor_framework_libs(
+    unzipped_mdt_dir: Path,
+    input_framework_dir: Path,
+    jars: JarPaths,
+    output_smali_dir: Path,
+    output_classes_dir: Path,
+    output_jars_dir: Path,
+) -> list[Path]:
+    """
+    Process vendor framework libraries (system/vendor/framework/*.odex).
+
+    :param unzipped_mdt_dir: Path to the root of your unzipped image (contains the Android filesystem)
+    :param input_framework_dir: Path to the directory containing the *.jar and *.odex files
+    :param jars: Class containing paths to baksmali and smali .jar files
+    :param output_smali_dir: Where smali files will be written (under <output_smali_dir>/<lib-name>)
+    :param output_classes_dir: Where classes.dex files will be written (under <output_classes_dir>/<lib-name>)
+    :param output_jars_dir: Where rebuilt JARs (JARs with injected classes.dex files) will be written
+    :return: List of paths to .odex files that were processed
+    """
+    # Clean up the directories.
+    reset_dir(output_smali_dir)
+    reset_dir(output_classes_dir)
+    reset_dir(output_jars_dir)
+
+    # Get paths to all of the .odex files in input_framework_dir.
+    odex_paths = get_jar_paired_odex_paths(input_framework_dir)
+    # Deodex the .odex files to produce .smali files.
+    print(f"Attempting to deodex vendor framework .odex files from {input_framework_dir}", file=sys.stderr)
+    for odex_path in odex_paths:
+        disassemble_odex(
+            baksmali_jar=jars.baksmali_jar,
+            unzipped_mdt_dir=unzipped_mdt_dir,
+            output_smali_dir=output_smali_dir,
+            input_odex=odex_path,
+        )
+
+    # Use the .smali files to generate classes.dex files.
+    print("Attempting to build classes.dex from vendor framework smali files", file=sys.stderr)
+    for odex_path in odex_paths:
+        assemble_smali_to_dex(
+            smali_jar=jars.smali_jar,
+            smali_dir=output_smali_dir,
+            classes_dir=output_classes_dir,
+            apk_name=odex_path.stem,
+        )
+
+    # Inject the classes.dex files into copies of the JARs.
+    for odex_path in odex_paths:
+        original_jar = unzipped_mdt_dir / "system" / "vendor" / "framework" / f"{odex_path.stem}.jar"
+        rebuild_jar_with_dex(
+            original_jar=original_jar,
+            classes_dir=output_classes_dir,
+            output_jars_dir=output_jars_dir,
+            stem=odex_path.stem,
         )
 
     return odex_paths
@@ -537,10 +785,10 @@ def process_apps_with_apktool(
 
         print(f"Decoding {apk_name}.apk", file=sys.stderr)
         decode_apk_with_apktool(apktool_jar, apk_path, output_dir)
-        print(f"apktool returned a zero status code; output likely written to {DIR_NAME_OUTPUT}/{DIR_NAME_APKTOOL_APPS}/{apk_name}", file=sys.stderr)
+        print(f"apktool returned a zero status code; output likely written to {DIR_NAME_OUTPUT}/{output_apktool_dir.name}/{apk_name}", file=sys.stderr)
 
 
-def decode_framework_with_apktool(
+def decode_vendor_framework_with_apktool(
     apktool_jar: Path,
     unzipped_mdt_dir: Path,
     output_framework_dir: Path,
@@ -563,7 +811,7 @@ def decode_framework_with_apktool(
     # Decode the framework-res.apk itself.
     print("Decoding framework-res.apk with apktool", file=sys.stderr)
     decode_apk_with_apktool(apktool_jar, framework_res_apk, output_framework_dir)
-    print(f"apktool returned a zero status code; output likely written to {DIR_NAME_OUTPUT}/{DIR_NAME_APKTOOL_FRAMEWORK}", file=sys.stderr)
+    print(f"apktool returned a zero status code; output likely written to {DIR_NAME_OUTPUT}/{DIR_NAME_APKTOOL_VENDOR_FRAMEWORK}", file=sys.stderr)
 
 
 def main():
@@ -575,9 +823,9 @@ def main():
     )
     parser.add_argument(
         "--steps",
-        choices=["deodex", "apktool-apps", "apktool-framework", "all"],
+        choices=["deodex-system-apps", "deodex-vendor-apps", "deodex-system-framework-jars", "deodex-vendor-framework-jars", "apktool-system-apps", "apktool-vendor-apps", "apktool-vendor-framework", "all"],
         default="all",
-        help="Which processing steps to run: 'deodex' (baksmali/smali/odex), 'apktool-apps' (app resource decoding), 'apktool-framework' (framework resource decoding), or 'all' (default)",
+        help="Which processing steps to run: 'deodex-system-apps' (deodex system app .odex files), 'deodex-vendor-apps' (deodex vendor app .odex files), 'deodex-system-framework-jars' (deodex system framework .odex files), 'deodex-vendor-framework-jars' (deodex vendor framework .odex files), 'apktool-system-apps' (system app resource decoding), 'apktool-vendor-apps' (vendor app resource decoding), 'apktool-vendor-framework' (vendor framework resource decoding), or 'all' (default)",
     )
     args = parser.parse_args()
 
@@ -593,16 +841,36 @@ def main():
     unzipped_zip_dir = output_dir / DIR_NAME_UNZIPPED_ZIP
     # Will contain the unzipped SwUpdate.mdt file.
     unzipped_mdt_dir = output_dir / DIR_NAME_UNZIPPED_MDT
+    # Will contain .smali files from deodexing system/app/*.odex files.
+    system_app_smali_dir = output_dir / DIR_NAME_SYSTEM_APP_SMALI
+    # Will contain classes.dex files from reassembling system app .smali files.
+    system_app_classes_dir = output_dir / DIR_NAME_SYSTEM_APP_CLASSES
+    # Will contain reconstructed system/app/*.apk files with classes.dex files.
+    output_system_apps_repacked_dir = output_dir / DIR_NAME_SYSTEM_APP_APKS_REPACKED
     # Will contain .smali files from deodexing system/vendor/app/*.odex files.
-    vendor_app_smali_dir = output_dir / DIR_NAME_SMALI
+    vendor_app_smali_dir = output_dir / DIR_NAME_VENDOR_APP_SMALI
     # Will contain classes.dex files from reassembling .smali files.
     vendor_app_classes_dir = output_dir / DIR_NAME_VENDOR_APP_CLASSES
     # Will contain reconstructed system/vendor/app/*.apk files with classes.dex files.
-    output_vendor_apps_dir = output_dir / DIR_NAME_OUTPUT_VENDOR_APPS
-    # Will contain decoded APK resources from apktool.
-    apktool_apps_dir = output_dir / DIR_NAME_APKTOOL_APPS
-    # Will contain decoded framework resources from apktool.
-    apktool_framework_dir = output_dir / DIR_NAME_APKTOOL_FRAMEWORK
+    output_vendor_apps_repacked_dir = output_dir / DIR_NAME_VENDOR_APP_APKS_REPACKED
+    # Will contain .smali files from deodexing system/framework/*.odex files.
+    system_framework_smali_dir = output_dir / DIR_NAME_SYSTEM_FRAMEWORK_SMALI
+    # Will contain classes.dex files from reassembling system framework .smali files.
+    system_framework_classes_dir = output_dir / DIR_NAME_SYSTEM_FRAMEWORK_CLASSES
+    # Will contain reconstructed system/framework/*.jar files with classes.dex files.
+    output_system_framework_jars_repacked_dir = output_dir / DIR_NAME_SYSTEM_FRAMEWORK_JARS_REPACKED
+    # Will contain .smali files from deodexing system/vendor/framework/*.odex files.
+    vendor_framework_smali_dir = output_dir / DIR_NAME_VENDOR_FRAMEWORK_SMALI
+    # Will contain classes.dex files from reassembling vendor framework .smali files.
+    vendor_framework_classes_dir = output_dir / DIR_NAME_VENDOR_FRAMEWORK_CLASSES
+    # Will contain reconstructed system/vendor/framework/*.jar files with classes.dex files.
+    output_vendor_framework_jars_repacked_dir = output_dir / DIR_NAME_VENDOR_FRAMEWORK_JARS_REPACKED
+    # Will contain decoded system APK resources from apktool.
+    apktool_system_apps_dir = output_dir / DIR_NAME_APKTOOL_SYSTEM_APPS
+    # Will contain decoded vendor APK resources from apktool.
+    apktool_vendor_apps_dir = output_dir / DIR_NAME_APKTOOL_VENDOR_APPS
+    # Will contain decoded vendor framework resources from apktool.
+    apktool_vendor_framework_dir = output_dir / DIR_NAME_APKTOOL_VENDOR_FRAMEWORK
 
     # Extract contents of MRC_<...>.zip file.
     reset_dir(unzipped_zip_dir)
@@ -616,37 +884,87 @@ def main():
 
     print(f"The Android file system has been extracted to '{unzipped_mdt_dir}'.", file=sys.stderr)
 
-    vendor_apps_dir = unzipped_mdt_dir / "system" / "vendor" / "app"
     steps = args.steps
 
-    if steps in ("deodex", "all"):
+    system_apps_dir = unzipped_mdt_dir / "system" / "app"
+    vendor_apps_dir = unzipped_mdt_dir / "system" / "vendor" / "app"
+    system_framework_dir = unzipped_mdt_dir / "system" / "framework"
+    vendor_framework_dir = unzipped_mdt_dir / "system" / "vendor" / "framework"
+
+    if steps in ("deodex-system-apps", "all"):
         print("Verifying smali and baksmali jars exist in inputs directory.", file=sys.stderr)
         jars = get_jars()
-        process_apps(
+        process_system_apps(
+            unzipped_mdt_dir=unzipped_mdt_dir,
+            input_apps_dir=system_apps_dir,
+            jars=jars,
+            output_smali_dir=system_app_smali_dir,
+            output_classes_dir=system_app_classes_dir,
+            output_apps_dir=output_system_apps_repacked_dir,
+        )
+
+    if steps in ("deodex-vendor-apps", "all"):
+        print("Verifying smali and baksmali jars exist in inputs directory.", file=sys.stderr)
+        jars = get_jars()
+        process_vendor_apps(
             unzipped_mdt_dir=unzipped_mdt_dir,
             input_apps_dir=vendor_apps_dir,
             jars=jars,
             output_smali_dir=vendor_app_smali_dir,
             output_classes_dir=vendor_app_classes_dir,
-            output_apps_dir=output_vendor_apps_dir,
+            output_apps_dir=output_vendor_apps_repacked_dir,
         )
 
-    if steps in ("apktool-apps", "all"):
+    if steps in ("deodex-system-framework-jars", "all"):
+        print("Verifying smali and baksmali jars exist in inputs directory.", file=sys.stderr)
+        jars = get_jars()
+        process_system_framework_libs(
+            unzipped_mdt_dir=unzipped_mdt_dir,
+            input_framework_dir=system_framework_dir,
+            jars=jars,
+            output_smali_dir=system_framework_smali_dir,
+            output_classes_dir=system_framework_classes_dir,
+            output_jars_dir=output_system_framework_jars_repacked_dir,
+        )
+
+    if steps in ("deodex-vendor-framework-jars", "all"):
+        print("Verifying smali and baksmali jars exist in inputs directory.", file=sys.stderr)
+        jars = get_jars()
+        process_vendor_framework_libs(
+            unzipped_mdt_dir=unzipped_mdt_dir,
+            input_framework_dir=vendor_framework_dir,
+            jars=jars,
+            output_smali_dir=vendor_framework_smali_dir,
+            output_classes_dir=vendor_framework_classes_dir,
+            output_jars_dir=output_vendor_framework_jars_repacked_dir,
+        )
+
+    if steps in ("apktool-system-apps", "all"):
         apktool_jar = get_apktool_jar()
-        apk_paths = get_vendor_apk_paths(vendor_apps_dir)
+        apk_paths = get_system_app_apk_paths(system_apps_dir)
         process_apps_with_apktool(
             apktool_jar=apktool_jar,
             unzipped_mdt_dir=unzipped_mdt_dir,
             apk_paths=apk_paths,
-            output_apktool_dir=apktool_apps_dir,
+            output_apktool_dir=apktool_system_apps_dir,
         )
 
-    if steps in ("apktool-framework", "all"):
+    if steps in ("apktool-vendor-apps", "all"):
         apktool_jar = get_apktool_jar()
-        decode_framework_with_apktool(
+        apk_paths = get_vendor_app_apk_paths(vendor_apps_dir)
+        process_apps_with_apktool(
             apktool_jar=apktool_jar,
             unzipped_mdt_dir=unzipped_mdt_dir,
-            output_framework_dir=apktool_framework_dir,
+            apk_paths=apk_paths,
+            output_apktool_dir=apktool_vendor_apps_dir,
+        )
+
+    if steps in ("apktool-vendor-framework", "all"):
+        apktool_jar = get_apktool_jar()
+        decode_vendor_framework_with_apktool(
+            apktool_jar=apktool_jar,
+            unzipped_mdt_dir=unzipped_mdt_dir,
+            output_framework_dir=apktool_vendor_framework_dir,
         )
 
 

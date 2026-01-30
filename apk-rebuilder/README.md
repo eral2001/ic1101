@@ -17,7 +17,7 @@ Script to extract, deodex, and decode vendor apps from 10th gen Honda Civic `MRC
 
 ### Viewing source code with JADX
 1. Install the [jadx GUI tool](https://github.com/skylot/jadx)
-2. In the JADX GUI, click `File` > `Open project` and select the `./output/deodex-apks/` directory.
+2. In the JADX GUI, click `File` > `Open project` and select the `./output/vendor-app-apks-repacked/` directory.
 3. When prompted to "Load all files from directory?" choose "Yes".
 
 Now inside JADX on the left-side pane you should be able to expand `Source code` and find the Mitsubishi
@@ -31,11 +31,21 @@ Running the script from start to finish should only take a minute or two.
 |---|---|
 | `output/unzipped-zip` | Extracted contents of `MRC<...>.zip` update file |
 | `output/unzipped-mdt` | Extracted contents of `SwUpdate.mdt`; contains Android filesystem |
-| `output/deodex-smali` | Smali files produced by disassembling `system/vendor/app/*.odex` files with baksmali |
-| `output/deodex-classes` | `classes.dex` files reassembled from smali files with smali |
-| `output/deodex-apks` | Rebuilt APKs with injected `classes.dex` files; ready for use with JADX |
-| `output/apktool-apps` | Decoded resources (XML layouts, drawables, values, manifest) for each vendor app via apktool |
-| `output/apktool-framework` | Decoded resources from the vendor `framework-res.apk` itself via apktool |
+| `output/system-app-smali` | Smali files produced by disassembling `system/app/*.odex` files with baksmali |
+| `output/system-app-classes` | `classes.dex` files reassembled from system app smali files with smali |
+| `output/system-app-apks-repacked` | Rebuilt APKs with injected `classes.dex` files; ready for use with JADX |
+| `output/vendor-app-smali` | Smali files produced by disassembling `system/vendor/app/*.odex` files with baksmali |
+| `output/vendor-app-classes` | `classes.dex` files reassembled from vendor app smali files with smali |
+| `output/vendor-app-apks-repacked` | Rebuilt APKs with injected `classes.dex` files; ready for use with JADX |
+| `output/system-framework-smali` | Smali files produced by disassembling `system/framework/*.odex` files with baksmali |
+| `output/system-framework-classes` | `classes.dex` files reassembled from system framework smali files with smali |
+| `output/system-framework-jars-repacked` | Rebuilt JARs with injected `classes.dex` files; ready for use with JADX |
+| `output/vendor-framework-smali` | Smali files produced by disassembling `system/vendor/framework/*.odex` files with baksmali |
+| `output/vendor-framework-classes` | `classes.dex` files reassembled from vendor framework smali files with smali |
+| `output/vendor-framework-jars-repacked` | Rebuilt JARs with injected `classes.dex` files; ready for use with JADX |
+| `output/apktool-system-apps` | Decoded resources for each system app (`system/app/*.apk`) via apktool |
+| `output/apktool-vendor-apps` | Decoded resources (XML layouts, drawables, values, manifest) for each vendor app via apktool |
+| `output/apktool-vendor-framework` | Decoded vendor framework resources from `framework-res.apk` via apktool |
 
 ## Compatibility
 I tried to make this script compatible cross-platform. At the time of writing I've only tested in on Debian Linux, but it's an intentionally lean Python script that has no dependencies beyond the Python standard library and relies on standard library tools for things like path and file manipulations.
