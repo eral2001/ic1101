@@ -13,7 +13,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from main import load_resources, render_layout
-from models import RenderContext, FontConfig, create_font_config
+from models import RenderContext, create_font_config
 from registry import create_registry
 
 
@@ -26,14 +26,14 @@ def main():
         '--framework-dir',
         required=True,
         type=Path,
-        help='Path to framework resources directory (e.g., ./build/framework-res-decoded/)'
+        help='Path to framework resources directory'
     )
 
     parser.add_argument(
         '--apps-dir',
         required=True,
         type=Path,
-        help='Path to directory containing app subdirectories (e.g., ./build/apktool-apps/)'
+        help='Path to directory containing app subdirectories'
     )
 
     parser.add_argument(
@@ -100,14 +100,14 @@ def main():
         '--system-fonts-file',
         required=True,
         type=Path,
-        help='Path to system_fonts.xml'
+        help='Path to system_fonts.xml (e.g., /system/etc/system_fonts.xml)'
     )
 
     parser.add_argument(
         '--fallback-fonts-file',
         required=True,
         type=Path,
-        help='Path to fallback_fonts.xml'
+        help='Path to fallback_fonts.xml (e.g., /system/etc/fallback_fonts.xml)'
     )
 
     args = parser.parse_args()

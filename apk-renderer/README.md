@@ -25,12 +25,12 @@ uv sync
 Render single layout .xml file:
 ```sh
 uv run render \
-  --framework-dir ../apk-rebuilder/build/framework-res-decoded \
-  --app-dir ../apk-rebuilder/build/apktool-apps/AirCon-resources \
-  --xml-file ../apk-rebuilder/build/apktool-apps/AirCon-resources/res/layout/mm_52_01_01.xml \
-  --fonts-dir ../apk-rebuilder/build/unzipped-mdt/system/fonts/ \
-  --system-fonts-file ../apk-rebuilder/build/unzipped-mdt/system/etc/system_fonts.xml \
-  --fallback-fonts-file ../apk-rebuilder/build/unzipped-mdt/system/etc/fallback_fonts.xml \
+  --framework-dir ../apk-rebuilder/output/apktool-framework \
+  --app-dir ../apk-rebuilder/output/apktool-apps/AirCon \
+  --xml-file ../apk-rebuilder/output/apktool-apps/AirCon/res/layout/mm_52_01_01.xml \
+  --fonts-dir ../apk-rebuilder/output/unzipped-mdt/system/fonts/ \
+  --system-fonts-file ../apk-rebuilder/output/unzipped-mdt/system/etc/system_fonts.xml \
+  --fallback-fonts-file ../apk-rebuilder/output/unzipped-mdt/system/etc/fallback_fonts.xml \
   --output-file output.png
 ```
 
@@ -44,11 +44,11 @@ Optional flags:
 Render all layouts across all apps:
 ```sh
 uv run bulk-render \
-  --framework-dir ../apk-rebuilder/build/framework-res-decoded \
-  --apps-dir ../apk-rebuilder/build/apktool-apps \
-  --fonts-dir ../apk-rebuilder/build/unzipped-mdt/system/fonts \
-  --system-fonts-file ../apk-rebuilder/build/unzipped-mdt/system/etc/system_fonts.xml \
-  --fallback-fonts-file ../apk-rebuilder/build/unzipped-mdt/system/etc/fallback_fonts.xml \
+  --framework-dir ../apk-rebuilder/output/apktool-framework \
+  --apps-dir ../apk-rebuilder/output/apktool-apps \
+  --fonts-dir ../apk-rebuilder/output/unzipped-mdt/system/fonts \
+  --system-fonts-file ../apk-rebuilder/output/unzipped-mdt/system/etc/system_fonts.xml \
+  --fallback-fonts-file ../apk-rebuilder/output/unzipped-mdt/system/etc/fallback_fonts.xml \
   --output-dir ./output
 ```
 
@@ -88,6 +88,19 @@ Theme (AOSP)
         └── ThemeZibaTranslucent
             └── ThemeZiba
 ```
+
+## Examples
+
+The AirCon app's `mm_52_01_01` layout rendered with each Mitsubishi color theme:
+
+| Theme | Render |
+|---|---|
+| ThemeBlue | ![ThemeBlue](examples/AirCon--mm_52_01_01--ThemeBlue.png) |
+| ThemeAmber | ![ThemeAmber](examples/AirCon--mm_52_01_01--ThemeAmber.png) |
+| ThemeBlueGreen | ![ThemeBlueGreen](examples/AirCon--mm_52_01_01--ThemeBlueGreen.png) |
+| ThemeGray | ![ThemeGray](examples/AirCon--mm_52_01_01--ThemeGray.png) |
+| ThemeRed | ![ThemeRed](examples/AirCon--mm_52_01_01--ThemeRed.png) |
+| ThemeViolet | ![ThemeViolet](examples/AirCon--mm_52_01_01--ThemeViolet.png) |
 
 ## Accuracy and Limitations
 

@@ -17,7 +17,7 @@ from layouter import layout
 from drawer import draw
 from drawable_loader import discover_drawables
 from resource_parser import load_values_resources
-from models import MeasureSpec, MeasureSpecMode, RenderContext, FontConfig, create_font_config
+from models import MeasureSpec, MeasureSpecMode, RenderContext, create_font_config
 from registry import Registry
 from PIL import Image
 
@@ -121,36 +121,20 @@ def main():
     parser = argparse.ArgumentParser(
         description='Render Android layout XML to PNG',
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  %(prog)s \\
-    --framework-dir ./build/framework-res-decoded \\
-    --app-dir ./build/apktool-apps/AirCon-resources \\
-    --xml-file ./build/apktool-apps/AirCon-resources/res/layout/main.xml \\
-    --output-file output.png
-
-  %(prog)s \\
-    --framework-dir ./build/framework-res-decoded \\
-    --app-dir ./build/apktool-apps/AirCon-resources \\
-    --xml-file ./build/apktool-apps/AirCon-resources/res/layout/main.xml \\
-    --output-file output.png \\
-    --width 360 \\
-    --height 640
-        """
     )
 
     parser.add_argument(
         '--framework-dir',
         required=True,
         type=Path,
-        help='Path to framework resources directory (e.g., ./build/framework-res-decoded/)'
+        help='Path to framework resources directory'
     )
 
     parser.add_argument(
         '--app-dir',
         required=True,
         type=Path,
-        help='Path to app resources directory (e.g., ./build/apktool-apps/AirCon-resources)'
+        help='Path to app resources directory'
     )
 
     parser.add_argument(
@@ -224,14 +208,14 @@ Examples:
         '--system-fonts-file',
         required=True,
         type=Path,
-        help='Path to system_fonts.xml'
+        help='Path to system_fonts.xml (e.g., /system/etc/system_fonts.xml)'
     )
 
     parser.add_argument(
         '--fallback-fonts-file',
         required=True,
         type=Path,
-        help='Path to fallback_fonts.xml'
+        help='Path to fallback_fonts.xml (e.g., /system/etc/fallback_fonts.xml)'
     )
 
     args = parser.parse_args()
