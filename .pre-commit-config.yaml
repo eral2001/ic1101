@@ -1,0 +1,37 @@
+default_install_hook_types: [pre-commit, commit-msg]
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.10
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+        files: ^apk-rebuilder/
+      - id: ruff-format
+        files: ^apk-rebuilder/
+  - repo: https://github.com/RobertCraigie/pyright-python
+    rev: v1.1.408
+    hooks:
+      - id: pyright
+        files: ^apk-rebuilder/
+        args: [--project, apk-rebuilder/pyproject.toml]
+        additional_dependencies:
+          - pytest>=9.0.3
+  - repo: https://github.com/crate-ci/typos
+    rev: v1.45.0
+    hooks:
+      - id: typos
+        files: ^apk-rebuilder/
+  - repo: https://github.com/executablebooks/mdformat
+    rev: 0.7.22
+    hooks:
+      - id: mdformat
+        additional_dependencies:
+          - mdformat-gfm
+  - repo: local
+    hooks:
+      - id: commit-subject
+        name: "commit subject must match `<feat|fix|chore>: <text>` (no trailing whitespace or period)"
+        language: pygrep
+        entry: "^(feat|fix|chore): \\S.*[^\\s.]$"
+        args: [--negate, --multiline]
+        stages: [commit-msg]
