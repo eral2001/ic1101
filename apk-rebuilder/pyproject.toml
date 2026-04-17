@@ -1,0 +1,43 @@
+[project]
+name = "apk-rebuilder"
+version = "0.0.0"
+requires-python = ">=3.13"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.10",
+    "pyright>=1.1.408",
+    "typos>=1.45.0",
+    "pytest>=9.0.3",
+]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "W",
+    "F",
+    "I",
+    "UP",
+]
+
+[tool.pyright]
+pythonVersion = "3.13"
+typeCheckingMode = "standard"
+include = ["src", "tests"]
+extraPaths = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.typos.default.extend-words]
+apktool = "apktool"
+odex = "odex"
+deodex = "deodex"
+deodexes = "deodexes"
+baksmali = "baksmali"
+bootclasspath = "bootclasspath"
