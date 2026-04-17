@@ -23,7 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
-      - run: uv run --project apk-rebuilder pyright apk-rebuilder/
+      - run: uv run --project apk-rebuilder pyright --project apk-rebuilder apk-rebuilder/
 
   typos:
     runs-on: ubuntu-latest
